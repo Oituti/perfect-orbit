@@ -3,8 +3,10 @@
     padding: 0;
     overflow: hidden; /* スクロールバーを隠す */
     background-color: #050510; /* 宇宙をイメージした深い黒 */
+    touch-action: none; /* ← 超重要！ブラウザのスクロールやスワイプを無効化 */
 }
 
 canvas {
     display: block;
+    touch-action: none; /* ← 念のためキャンバスにも指定 */
 }
