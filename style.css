@@ -1,0 +1,10 @@
+﻿body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* スクロールバーを隠す */
+    background-color: #050510; /* 宇宙をイメージした深い黒 */
+}
+
+canvas {
+    display: block;
+}
