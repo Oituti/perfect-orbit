@@ -1,14 +1,25 @@
 ﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
+    <!-- ここからGoogleアナリティクスのコードを追加 -->
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-85DVRJWEC2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+
+        gtag('config', 'G-85DVRJWEC2'); // ←※ここをご自身の測定ID（G-〜）に書き換える
+    </script>
+    <!-- ここまで追加 -->
+
     <meta charset="UTF-8">
     <title>Perfect Orbit</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- ここにゲーム画面が描画されます -->
-    <canvas id="gameCanvas"></canvas>
+<canvas id="gameCanvas"></canvas>
 
-    <script src="main.js"></script>
+<script src="main.js"></script>
 </body>
 </html>
