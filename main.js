@@ -1,12 +1,20 @@
 ﻿const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+// --- 音声データの読み込み ---
+const bgm = new Audio('bgm.mp3');
+bgm.loop = true; // BGMはループ再生
+bgm.volume = 0.5; // 音量調整 (0.0 〜 1.0)
+
+const seResult = new Audio('se_result.mp3');
+seResult.volume = 0.8;
+
 // --- ゲーム状態管理 ---
 let gameState = 'menu';
 let currentMode = 'earth';
 let isDrawing = false;
 let pathData = [];
-let particles = []; // 追加：パーティクル（光の粒）を管理する配列
+let particles = [];
 let currentScore = 0;
 let resultMessage = "";
 
@@ -14,6 +22,20 @@ const modes = {
     earth: { name: '地球', rx: 150, ry: 150, color: '#00FFFF' },
     comet: { name: '彗星', rx: 250, ry: 80, color: '#FF4500' }
 };
+
+const triviaList = {
+    earth: [
+        "地球は太陽の周りを約365.24日で一周します。",
+        "地球の軌道は完全な円ではなく、わずかに歪んだ楕円です。",
+        "太陽から地球までの距離は約1億5000万km（1天文単位）です。"
+    ],
+    comet: [
+        "彗星は氷とチリでできた「汚れた雪だるま」とも呼ばれます。",
+        "太陽に近づくと熱でガスが放出され、美しい尾を引きます。",
+        "彗星の軌道は非常に細長い楕円になることが特徴です。"
+    ]
+};
+let currentTrivia = "";
 
 let bestScores = {
     earth: localStorage.getItem('perfectOrbitBest_earth') || 0,
@@ -26,17 +48,14 @@ function resizeCanvas() {
     canvas.height = window.innerHeight;
 }
 
-// --- パーティクル生成関数 ---
 function createParticles(x, y, color) {
-    // マウスの動きに合わせて2〜4個の粒子を生成
     const count = Math.random() * 3 + 2;
     for (let i = 0; i < count; i++) {
         particles.push({
-            x: x,
-            y: y,
-            vx: (Math.random() - 0.5) * 4, // X方向のランダムな速度
-            vy: (Math.random() - 0.5) * 4, // Y方向のランダムな速度
-            life: 1.0, // 寿命（1.0から減っていく）
+            x: x, y: y,
+            vx: (Math.random() - 0.5) * 4,
+            vy: (Math.random() - 0.5) * 4,
+            life: 1.0,
             color: color
         });
     }
@@ -74,7 +93,6 @@ function calculateScore() {
     }
 
     const averageError = totalError / pathData.length;
-
     const startPoint = pathData[0];
     const endPoint = pathData[pathData.length - 1];
     const gapDistance = Math.sqrt(Math.pow(startPoint.x - endPoint.x, 2) + Math.pow(startPoint.y - endPoint.y, 2));
@@ -92,15 +110,13 @@ function calculateScore() {
     return { score: score, message: msg };
 }
 
-// 毎フレーム呼ばれる描画ループ
 function render() {
-    // 画面消去
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
 
     if (gameState === 'menu') {
-        ctx.shadowBlur = 0; // グロー効果リセット
+        ctx.shadowBlur = 0;
         ctx.fillStyle = 'white';
         ctx.textAlign = 'center';
         ctx.font = 'bold 36px sans-serif';
@@ -128,7 +144,6 @@ function render() {
     const ry = modes[currentMode].ry;
     const lineColor = modes[currentMode].color;
 
-    // --- エフェクトと背景の描画 ---
     ctx.shadowBlur = 0;
 
     // 正解の軌道
@@ -138,7 +153,7 @@ function render() {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // 太陽 (少し光らせる)
+    // 太陽
     ctx.shadowBlur = 15;
     ctx.shadowColor = '#FFCC00';
     ctx.beginPath();
@@ -146,7 +161,7 @@ function render() {
     ctx.fillStyle = '#FFCC00';
     ctx.fill();
 
-    // プレイヤーの線 (グロー効果)
+    // プレイヤーの線
     if (pathData.length > 0) {
         ctx.shadowBlur = 15;
         ctx.shadowColor = lineColor;
@@ -160,13 +175,13 @@ function render() {
         ctx.stroke();
     }
 
-    // パーティクルの更新と描画
+    // パーティクル
     ctx.shadowBlur = 10;
     for (let i = particles.length - 1; i >= 0; i--) {
         let p = particles[i];
         p.x += p.vx;
         p.y += p.vy;
-        p.life -= 0.03; // 少しずつ消える
+        p.life -= 0.03;
 
         if (p.life <= 0) {
             particles.splice(i, 1);
@@ -179,21 +194,18 @@ function render() {
         }
     }
 
-    // --- UI（テキスト）の描画 ---
-    ctx.shadowBlur = 0; // テキストがぼやけないようにリセット
-
+    // UIテキスト
+    ctx.shadowBlur = 0;
     if (gameState === 'playing') {
         ctx.fillStyle = 'white';
         ctx.textAlign = 'center';
         ctx.font = '24px sans-serif';
-        // 画面上部に配置
         ctx.fillText(modes[currentMode].name + 'の軌道を描こう', centerX, 50);
     }
 
     if (gameState === 'result') {
         ctx.textAlign = 'center';
 
-        // 結果は画面の「上部」にまとめて表示（軌道と被らないように）
         ctx.fillStyle = 'white';
         ctx.font = 'bold 48px sans-serif';
         ctx.fillText(currentScore.toFixed(2) + '%', centerX, 80);
@@ -212,13 +224,34 @@ function render() {
             ctx.fillText('BEST: ' + parseFloat(best).toFixed(2) + '%', centerX, 170);
         }
 
-        // リトライ案内は画面の「下部」に配置
+        // --- 𝕏 シェアボタン (右上に移動) ---
+        const shareBtnWidth = 140;
+        const shareBtnHeight = 40;
+        const shareX = canvas.width - shareBtnWidth - 20; // 右から20px
+        const shareY = 20; // 上から20px
+
+        ctx.fillStyle = 'white';
+        ctx.fillRect(shareX, shareY, shareBtnWidth, shareBtnHeight);
+        ctx.fillStyle = 'black';
+        ctx.fillRect(shareX + 2, shareY + 2, shareBtnWidth - 4, shareBtnHeight - 4);
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 16px sans-serif';
+        // テキストをボタンの中央に配置
+        ctx.fillText('𝕏 でシェア', shareX + shareBtnWidth / 2, shareY + 26);
+
+        // 豆知識の表示
+        ctx.fillStyle = '#AAAAAA';
+        ctx.font = '16px sans-serif';
+        ctx.fillText('💡 豆知識', centerX, canvas.height - 110);
+        ctx.fillStyle = 'white';
+        ctx.font = '16px sans-serif';
+        ctx.fillText(currentTrivia, centerX, canvas.height - 80);
+
         ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.font = '18px sans-serif';
-        ctx.fillText('画面をタッチ/クリックでメニューへ', centerX, canvas.height - 40);
+        ctx.font = '16px sans-serif';
+        ctx.fillText('画面の空いている場所をタッチでメニューへ', centerX, canvas.height - 30);
     }
 
-    // アニメーションループを継続
     requestAnimationFrame(render);
 }
 
@@ -235,19 +268,33 @@ canvas.addEventListener('pointerdown', (e) => {
             if (y > centerY - 40 && y < centerY + 20) {
                 currentMode = 'earth';
                 gameState = 'playing';
+                bgm.play().catch(e => console.log("BGMの再生がブロックされました"));
             } else if (y > centerY + 40 && y < centerY + 100) {
                 currentMode = 'comet';
                 gameState = 'playing';
+                bgm.play().catch(e => console.log("BGMの再生がブロックされました"));
             }
         }
         return;
     }
 
     if (gameState === 'result') {
+        // シェアボタンの当たり判定 (右上)
+        const shareBtnWidth = 140;
+        const shareBtnHeight = 40;
+        const shareX = canvas.width - shareBtnWidth - 20;
+        const shareY = 20;
+
+        if (x > shareX && x < shareX + shareBtnWidth && y > shareY && y < shareY + shareBtnHeight) {
+            const text = encodeURIComponent(`私の${modes[currentMode].name}軌道スコアは ${currentScore.toFixed(2)}% でした！\nあなたは完璧な軌道を描けるか？\n#PerfectOrbit`);
+            window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+            return;
+        }
+
         gameState = 'menu';
         isNewBest = false;
         pathData = [];
-        particles = []; // パーティクルもリセット
+        particles = [];
         return;
     }
 
@@ -262,8 +309,6 @@ canvas.addEventListener('pointermove', (e) => {
     const y = e.clientY - rect.top;
 
     pathData.push({ x, y });
-
-    // 動かしている間、パーティクルを生成
     createParticles(x, y, modes[currentMode].color);
 });
 
@@ -276,6 +321,13 @@ canvas.addEventListener('pointerup', () => {
     resultMessage = result.message;
     gameState = 'result';
 
+    // 描き終わった瞬間にSEを鳴らす
+    seResult.currentTime = 0; // 連続で鳴らせるように再生位置をリセット
+    seResult.play().catch(e => console.log("SEの再生エラー"));
+
+    const triviaArray = triviaList[currentMode];
+    currentTrivia = triviaArray[Math.floor(Math.random() * triviaArray.length)];
+
     if (currentScore > bestScores[currentMode]) {
         bestScores[currentMode] = currentScore;
         isNewBest = true;
@@ -284,5 +336,4 @@ canvas.addEventListener('pointerup', () => {
 });
 
 resizeCanvas();
-// アニメーションループ開始
 render();
