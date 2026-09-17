@@ -1,12 +1,316 @@
-﻿body {
+﻿:root {
+    --bg-color: #030308;
+    --text-primary: #f0f3f8;
+    --text-secondary: rgba(240, 243, 248, 0.45);
+    --line-color: rgba(255, 255, 255, 0.15);
+    --accent-earth: #49d5b6;
+    --accent-comet: #ff5e3a;
+}
+
+body {
     margin: 0;
     padding: 0;
-    overflow: hidden; /* スクロールバーを隠す */
-    background-color: #050510; /* 宇宙をイメージした深い黒 */
-    touch-action: none; /* ← 超重要！ブラウザのスクロールやスワイプを無効化 */
+    overflow: hidden;
+    background-color: var(--bg-color);
+    touch-action: none;
+    font-family: 'Space Grotesk', -apple-system, sans-serif;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
 }
 
 canvas {
     display: block;
-    touch-action: none; /* ← 念のためキャンバスにも指定 */
+    touch-action: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+/* オーディオコントロール (右上固定) */
+#audioControls {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    z-index: 10;
+    display: flex;
+    gap: 16px;
+    background: rgba(10, 12, 18, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--line-color);
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+}
+
+.audio-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.audio-label {
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+#bgmSelect {
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid var(--line-color);
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-family: inherit;
+    font-size: 11px;
+    outline: none;
+}
+
+#bgmSelect option {
+    background: #0d1017;
+    color: #fff;
+}
+
+#volumeSlider {
+    width: 60px;
+    accent-color: #fff;
+    cursor: pointer;
+}
+
+/* UIレイヤー */
+#uiLayer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.ui-screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hidden {
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+}
+
+/* メニュー画面 */
+.title-container {
+    text-align: center;
+    margin-bottom: 48px;
+}
+
+.title-text {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    margin: 0 0 6px 0;
+}
+
+.subtitle {
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 280px;
+}
+
+.mode-btn {
+    pointer-events: auto;
+    position: relative;
+    overflow: hidden;
+    background: rgba(15, 18, 26, 0.7);
+    border: 1px solid var(--line-color);
+    padding: 16px 20px;
+    border-radius: 6px;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mode-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 90px;
+    height: 54px;
+    opacity: 0.25;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.btn-text-wrap {
+    position: relative;
+    z-index: 1;
+}
+
+.btn-title {
+    display: block;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+}
+
+.btn-desc {
+    display: block;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    letter-spacing: 0.02em;
+}
+
+/* EARTH ボタン */
+.mode-earth {
+    border-left: 4px solid var(--accent-earth);
+}
+
+.mode-earth .btn-title {
+    color: var(--accent-earth);
+}
+
+.mode-earth:hover {
+    background: rgba(73, 213, 182, 0.08);
+    border-color: rgba(73, 213, 182, 0.4);
+    border-left-color: var(--accent-earth);
+    transform: translateY(-2px);
+}
+
+.mode-earth:hover .mode-icon {
+    opacity: 0.55;
+    transform: translateY(-50%) scale(1.05);
+}
+
+/* COMET ボタン */
+.mode-comet {
+    border-left: 4px solid var(--accent-comet);
+}
+
+.mode-comet .btn-title {
+    color: var(--accent-comet);
+}
+
+.mode-comet:hover {
+    background: rgba(255, 94, 58, 0.08);
+    border-color: rgba(255, 94, 58, 0.4);
+    border-left-color: var(--accent-comet);
+    transform: translateY(-2px);
+}
+
+.mode-comet:hover .mode-icon {
+    opacity: 0.55;
+    transform: translateY(-50%) scale(1.05);
+}
+
+/* プレイ中 */
+.target-text {
+    position: absolute;
+    top: 48px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    color: var(--text-secondary);
+}
+
+/* リザルト画面 */
+.result-card {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.eval-text {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    margin-bottom: 8px;
+    color: var(--accent-earth);
+}
+
+.score-text {
+    font-size: 76px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+}
+
+.best-text {
+    margin-top: 8px;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+}
+
+.best-text.new-best {
+    color: #ffd166;
+}
+
+.share-btn {
+    pointer-events: auto;
+    background: #fff;
+    color: #000;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 24px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    margin-bottom: 36px;
+    transition: opacity 0.15s ease;
+}
+
+.share-btn:hover {
+    opacity: 0.85;
+}
+
+.trivia-box {
+    position: absolute;
+    bottom: 50px;
+    max-width: 420px;
+    padding: 0 24px;
+    text-align: center;
+}
+
+.trivia-tag {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--text-secondary);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.trivia-text {
+    font-size: 12px;
+    line-height: 1.6;
+    color: rgba(240, 243, 248, 0.7);
+    margin: 0;
+}
+
+.retry-hint {
+    position: absolute;
+    bottom: 20px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
 }
