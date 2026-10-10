@@ -22,8 +22,11 @@
 <body>
 <canvas id="gameCanvas"></canvas>
 
-<!-- 右上オーディオコントロール -->
+<!-- 右上コントロール（画面向き切替ボタンを追加） -->
 <div id="audioControls">
+    <div class="audio-item">
+        <button id="orientBtn" class="orient-btn" title="画面向き切替">📱 縦固定</button>
+    </div>
     <div class="audio-item">
         <span class="audio-label">TRACK</span>
         <select id="bgmSelect">
@@ -74,11 +77,14 @@
                 </div>
             </button>
         </div>
+
+        <p class="credit-text">BGM：OtoLogic、すこやか5000屋、ラヂヲ・アヰソトオプ</p>
     </div>
 
     <!-- プレイ中ガイド -->
     <div id="playingUI" class="ui-screen hidden">
         <div id="targetText" class="target-text">EARTH ORBIT</div>
+        <div id="liveScoreText" class="live-score-text">100.0%</div>
     </div>
 
     <!-- リザルト画面 -->

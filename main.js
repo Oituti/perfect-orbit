@@ -2,7 +2,6 @@
 const ctx = canvas.getContext('2d');
 
 // --- 音声管理 ---
-// BGM候補リスト（Bell_Accent13-1(High).mp3を除外）
 const bgmList = [
     'bgm.mp3',
     '05 meteor shower.mp3',
@@ -13,11 +12,13 @@ const bgmAudio = new Audio();
 bgmAudio.loop = true;
 
 const seResult = new Audio('se_result.mp3');
-// 描き始めと接続時のベル効果音
 const seBell = new Audio('Bell_Accent13-1(High).mp3');
 
 const bgmSelect = document.getElementById('bgmSelect');
 const volumeSlider = document.getElementById('volumeSlider');
+const orientBtn = document.getElementById('orientBtn');
+
+let isPortraitMode = true;
 
 function updateAudioVolume() {
     const vol = parseFloat(volumeSlider.value);
@@ -33,7 +34,6 @@ function startBgmPlayback() {
         selected = bgmList[randomIndex];
     }
 
-    // 日本語ファイル名などのURLエンコード差異を吸収して判定
     const currentSrc = decodeURIComponent(bgmAudio.src);
     if (!currentSrc.endsWith(selected)) {
         bgmAudio.src = encodeURI(selected);
@@ -53,11 +53,31 @@ bgmSelect.addEventListener('change', () => {
 
 volumeSlider.addEventListener('input', updateAudioVolume);
 
+orientBtn.addEventListener('click', async () => {
+    isPortraitMode = !isPortraitMode;
+    orientBtn.innerText = isPortraitMode ? "📱 縦固定" : "🔄 横固定";
+
+    try {
+        if (!document.fullscreenElement) {
+            await document.documentElement.requestFullscreen().catch(() => {});
+        }
+        if (screen.orientation && screen.orientation.lock) {
+            const targetOrient = isPortraitMode ? 'portrait-primary' : 'landscape-primary';
+            await screen.orientation.lock(targetOrient).catch(() => {});
+        }
+    } catch (e) {
+        console.log("Orientation lock not supported:", e);
+    }
+
+    resizeCanvas();
+});
+
 // --- DOM要素 ---
 const menuUI = document.getElementById('menuUI');
 const playingUI = document.getElementById('playingUI');
 const resultUI = document.getElementById('resultUI');
 const targetText = document.getElementById('targetText');
+const liveScoreText = document.getElementById('liveScoreText');
 const evalText = document.getElementById('evalText');
 const scoreText = document.getElementById('scoreText');
 const bestText = document.getElementById('bestText');
@@ -73,8 +93,8 @@ let cumulativeAngle = 0;
 let lastAngle = 0;
 
 const modes = {
-    earth: { name: 'EARTH', rx: 150, ry: 150, color: '#49d5b6' },
-    comet: { name: 'COMET', rx: 250, ry: 80, color: '#ff5e3a' }
+    earth: { name: 'EARTH', baseHue: 168, starColor: '#49d5b6', starShadow: 'rgba(73, 213, 182, 0.5)' },
+    comet: { name: 'COMET', baseHue: 12, starColor: '#ff5e3a', starShadow: 'rgba(255, 94, 58, 0.5)' }
 };
 
 const triviaList = {
@@ -95,9 +115,46 @@ let bestScores = {
     comet: parseFloat(localStorage.getItem('perfectOrbitBest_comet')) || 0
 };
 
+function getOrbitRadius(mode) {
+    const minDim = Math.min(canvas.width, canvas.height);
+    const isPortrait = canvas.height > canvas.width;
+
+    if (mode === 'earth') {
+        const radius = Math.min(minDim * 0.32, 160);
+        return { rx: radius, ry: radius };
+    } else {
+        if (isPortrait) {
+            const ry = Math.min(canvas.height * 0.32, 240);
+            const rx = Math.min(canvas.width * 0.35, 100);
+            return { rx, ry };
+        } else {
+            const rx = Math.min(canvas.width * 0.35, 250);
+            const ry = Math.min(canvas.height * 0.32, 90);
+            return { rx, ry };
+        }
+    }
+}
+
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+}
+
+function getPointColor(point, centerX, centerY, mode) {
+    const { rx, ry } = getOrbitRadius(mode);
+    const baseHue = modes[mode].baseHue;
+
+    const dx = point.x - centerX;
+    const dy = point.y - centerY;
+    const normalizedY = dy * (rx / ry);
+    const distance = Math.sqrt(dx * dx + normalizedY * normalizedY);
+
+    const error = Math.abs(distance - rx);
+    const maxError = 40;
+    const ratio = Math.min(1, error / maxError);
+
+    const currentHue = (baseHue + ratio * 180) % 360;
+    return `hsl(${currentHue}, 85%, 55%)`;
 }
 
 function createParticles(x, y, color) {
@@ -115,11 +172,10 @@ function createParticles(x, y, color) {
 }
 
 function calculateScore() {
-    if (pathData.length < 10) return { score: 0, message: "TOO SHORT" };
+    if (pathData.length < 2) return { score: 100, message: "PERFECT" };
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
-    const rx = modes[currentMode].rx;
-    const ry = modes[currentMode].ry;
+    const { rx, ry } = getOrbitRadius(currentMode);
 
     let totalError = 0;
     let pathLength = 0;
@@ -137,7 +193,10 @@ function calculateScore() {
 
     const expectedPerimeter = 2 * Math.PI * Math.sqrt((rx * rx + ry * ry) / 2);
     if (pathLength > expectedPerimeter * 1.5) return { score: 0, message: "OVERDRAWN" };
-    if (Math.abs(cumulativeAngle) < Math.PI * (350 / 180)) return { score: 0, message: "INCOMPLETE" };
+
+    if (gameState === 'playing' && Math.abs(cumulativeAngle) < Math.PI * (350 / 180) && pathData.length < 10) {
+        return { score: 100, message: "PERFECT" };
+    }
 
     let score = 100 - ((totalError / pathData.length) / rx) * 100;
     score = Math.max(0, Math.min(100, score));
@@ -149,6 +208,19 @@ function calculateScore() {
     else if (score < 70) msg = "UNSTABLE";
 
     return { score: score, message: msg };
+}
+
+function updateLiveScore() {
+    const res = calculateScore();
+    liveScoreText.innerText = res.score.toFixed(1) + '%';
+
+    if (res.score >= 90) {
+        liveScoreText.style.color = modes[currentMode].starColor;
+    } else if (res.score >= 70) {
+        liveScoreText.style.color = '#f0f3f8';
+    } else {
+        liveScoreText.style.color = '#ff5e3a';
+    }
 }
 
 function setUIState(state) {
@@ -165,6 +237,8 @@ function startGame(mode) {
     currentMode = mode;
     gameState = 'playing';
     targetText.innerText = `${modes[currentMode].name} ORBIT`;
+    liveScoreText.innerText = "100.0%";
+    liveScoreText.style.color = modes[currentMode].starColor;
     setUIState('playing');
     startBgmPlayback();
 }
@@ -182,7 +256,6 @@ function finishDrawing() {
     if (!isDrawing || gameState !== 'playing') return;
     isDrawing = false;
 
-    // 接続時にベルSEを再生
     seBell.currentTime = 0;
     seBell.play().catch(() => {});
 
@@ -190,6 +263,7 @@ function finishDrawing() {
     currentScore = result.score;
 
     evalText.innerText = result.message;
+    evalText.style.color = modes[currentMode].starColor;
     scoreText.innerText = currentScore.toFixed(1) + '%';
 
     let isNewBest = false;
@@ -226,37 +300,52 @@ function render() {
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
 
-    const rx = modes[currentMode].rx;
-    const ry = modes[currentMode].ry;
-    const lineColor = modes[currentMode].color;
+    const { rx, ry } = getOrbitRadius(currentMode);
+    const modeConfig = modes[currentMode];
 
     // 基準軌道と恒星
     if (gameState === 'playing' || gameState === 'calculating') {
+        // 点線ガイド
         ctx.beginPath();
         ctx.ellipse(centerX, centerY, rx, ry, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
+        // 恒星（モードに応じた発光色に変更）
         ctx.beginPath();
-        ctx.arc(centerX, centerY, 18, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffcf56';
-        ctx.shadowColor = 'rgba(255, 207, 86, 0.4)';
-        ctx.shadowBlur = 12;
+        ctx.arc(centerX, centerY, 16, 0, Math.PI * 2);
+        ctx.fillStyle = modeConfig.starColor;
+        ctx.shadowColor = modeConfig.starShadow;
+        ctx.shadowBlur = 16;
         ctx.fill();
         ctx.shadowBlur = 0;
     }
 
     // プレイヤーの描画軌道
-    if (pathData.length > 0 && gameState !== 'menu') {
-        ctx.beginPath();
-        ctx.moveTo(pathData[0].x, pathData[0].y);
-        for (let i = 1; i < pathData.length; i++) {
-            ctx.lineTo(pathData[i].x, pathData[i].y);
+    if (pathData.length > 1 && gameState !== 'menu') {
+        const lineWidth = (gameState === 'playing') ? 3 : 4;
+        ctx.lineWidth = lineWidth;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        for (let i = 0; i < pathData.length - 1; i++) {
+            const p1 = pathData[i];
+            const p2 = pathData[i + 1];
+
+            const color1 = getPointColor(p1, centerX, centerY, currentMode);
+            const color2 = getPointColor(p2, centerX, centerY, currentMode);
+
+            const grad = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+            grad.addColorStop(0, color1);
+            grad.addColorStop(1, color2);
+
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = grad;
+            ctx.stroke();
         }
-        ctx.strokeStyle = lineColor;
-        ctx.lineWidth = (gameState === 'playing') ? 3 : 4;
-        ctx.stroke();
     }
 
     // パーティクル
@@ -294,7 +383,6 @@ canvas.addEventListener('pointerdown', (e) => {
 
     if (gameState !== 'playing') return;
 
-    // 描き始めにベルSEを再生
     seBell.currentTime = 0;
     seBell.play().catch(() => {});
 
@@ -306,6 +394,8 @@ canvas.addEventListener('pointerdown', (e) => {
     pathData = [{ x, y }];
     cumulativeAngle = 0;
     lastAngle = Math.atan2(y - (canvas.height / 2), x - (canvas.width / 2));
+
+    updateLiveScore();
 });
 
 canvas.addEventListener('pointermove', (e) => {
@@ -316,8 +406,11 @@ canvas.addEventListener('pointermove', (e) => {
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
 
-    pathData.push({ x, y });
-    createParticles(x, y, modes[currentMode].color);
+    const currentPoint = { x, y };
+    pathData.push(currentPoint);
+
+    const currentColor = getPointColor(currentPoint, centerX, centerY, currentMode);
+    createParticles(x, y, currentColor);
 
     const currentAngle = Math.atan2(y - centerY, x - centerX);
     let deltaAngle = currentAngle - lastAngle;
@@ -327,6 +420,8 @@ canvas.addEventListener('pointermove', (e) => {
 
     cumulativeAngle += deltaAngle;
     lastAngle = currentAngle;
+
+    updateLiveScore();
 
     if (Math.abs(cumulativeAngle) >= Math.PI * (370 / 180) && pathData.length > 20) {
         finishDrawing();
