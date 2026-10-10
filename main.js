@@ -179,8 +179,9 @@ function createParticles(x, y, color) {
     }
 }
 
+// 修正後スコア計算関数
 function calculateScore() {
-    if (pathData.length < 2) return { score: 100, message: "PERFECT" };
+    if (pathData.length < 10) return { score: 0, message: "TOO SHORT" };
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     const { rx, ry } = getOrbitRadius(currentMode);
@@ -202,8 +203,9 @@ function calculateScore() {
     const expectedPerimeter = 2 * Math.PI * Math.sqrt((rx * rx + ry * ry) / 2);
     if (pathLength > expectedPerimeter * 1.5) return { score: 0, message: "OVERDRAWN" };
 
-    if (gameState === 'playing' && Math.abs(cumulativeAngle) < Math.PI * (350 / 180) && pathData.length < 10) {
-        return { score: 100, message: "PERFECT" };
+    // ★ 修正：描画完了前に指を離してしまった場合はスコア0でINCOMPLETEとする
+    if (Math.abs(cumulativeAngle) < Math.PI * (350 / 180)) {
+        return { score: 0, message: "INCOMPLETE" };
     }
 
     let score = 100 - ((totalError / pathData.length) / rx) * 100;
@@ -219,12 +221,34 @@ function calculateScore() {
 }
 
 function updateLiveScore() {
-    const res = calculateScore();
-    liveScoreText.innerText = res.score.toFixed(1) + '%';
-
-    if (res.score >= 90) {
+    // 描画途中（画面上のリアルタイム計算）
+    if (pathData.length < 2) {
+        liveScoreText.innerText = "100.0%";
         liveScoreText.style.color = modes[currentMode].starColor;
-    } else if (res.score >= 70) {
+        return;
+    }
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const { rx, ry } = getOrbitRadius(currentMode);
+
+    let totalError = 0;
+    for (let i = 0; i < pathData.length; i++) {
+        const dx = pathData[i].x - centerX;
+        const dy = pathData[i].y - centerY;
+        const normalizedY = dy * (rx / ry);
+        const distance = Math.sqrt(dx * dx + normalizedY * normalizedY);
+        totalError += Math.abs(distance - rx);
+    }
+
+    let currentAcc = 100 - ((totalError / pathData.length) / rx) * 100;
+    currentAcc = Math.max(0, Math.min(100, currentAcc));
+
+    liveScoreText.innerText = currentAcc.toFixed(1) + '%';
+
+    if (currentAcc >= 90) {
+        liveScoreText.style.color = modes[currentMode].starColor;
+    } else if (currentAcc >= 70) {
         liveScoreText.style.color = '#f0f3f8';
     } else {
         liveScoreText.style.color = '#ff5e3a';
@@ -271,7 +295,7 @@ function finishDrawing() {
     currentScore = result.score;
 
     evalText.innerText = result.message;
-    evalText.style.color = modes[currentMode].starColor;
+    evalText.style.color = (currentScore === 0) ? '#ff5e3a' : modes[currentMode].starColor;
     scoreText.innerText = currentScore.toFixed(1) + '%';
 
     let isNewBest = false;
