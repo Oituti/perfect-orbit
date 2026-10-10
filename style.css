@@ -27,28 +27,69 @@ canvas {
     z-index: 1;
 }
 
-/* オーディオ & 画面コントロール */
+/* オーディオ & 画面コントロール (開閉対応) */
 #audioControls {
     position: absolute;
     top: 16px;
     right: 16px;
     z-index: 10;
     display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+    align-items: center;
+    gap: 10px;
     background: rgba(10, 12, 18, 0.85);
     backdrop-filter: blur(10px);
     border: 1px solid var(--line-color);
     border-radius: 6px;
-    padding: 8px 12px;
+    padding: 6px 10px;
     font-size: 11px;
     letter-spacing: 0.05em;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* トグルボタン */
+.toggle-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    line-height: 1;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.controls-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    overflow: hidden;
+    transition: max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+    max-width: 320px;
+    opacity: 1;
+}
+
+/* 折りたたみ（閉じた状態） */
+#audioControls.collapsed .controls-content {
+    max-width: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+#audioControls.collapsed {
+    padding: 6px;
+    background: rgba(10, 12, 18, 0.5);
 }
 
 .audio-item {
     display: flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
 }
 
 .audio-label {
@@ -200,7 +241,7 @@ canvas {
     letter-spacing: 0.02em;
 }
 
-/* EARTH ボタン（シアン統一） */
+/* EARTH ボタン */
 .mode-earth {
     border-left: 4px solid var(--accent-earth);
 }
@@ -221,7 +262,7 @@ canvas {
     transform: translateY(-50%) scale(1.05);
 }
 
-/* COMET ボタン（オレンジ統一） */
+/* COMET ボタン */
 .mode-comet {
     border-left: 4px solid var(--accent-comet);
 }

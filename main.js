@@ -17,8 +17,16 @@ const seBell = new Audio('Bell_Accent13-1(High).mp3');
 const bgmSelect = document.getElementById('bgmSelect');
 const volumeSlider = document.getElementById('volumeSlider');
 const orientBtn = document.getElementById('orientBtn');
+const audioControls = document.getElementById('audioControls');
+const toggleControlsBtn = document.getElementById('toggleControlsBtn');
 
 let isPortraitMode = true;
+
+// 設定パネルの開閉処理
+toggleControlsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    audioControls.classList.toggle('collapsed');
+});
 
 function updateAudioVolume() {
     const vol = parseFloat(volumeSlider.value);
@@ -45,15 +53,15 @@ function startBgmPlayback() {
     });
 }
 
+// ドロップダウンで変更した瞬間に即座にBGMを切り替えて再生
 bgmSelect.addEventListener('change', () => {
-    if (gameState === 'playing' || gameState === 'result') {
-        startBgmPlayback();
-    }
+    startBgmPlayback();
 });
 
 volumeSlider.addEventListener('input', updateAudioVolume);
 
-orientBtn.addEventListener('click', async () => {
+orientBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
     isPortraitMode = !isPortraitMode;
     orientBtn.innerText = isPortraitMode ? "📱 縦固定" : "🔄 横固定";
 
@@ -305,14 +313,12 @@ function render() {
 
     // 基準軌道と恒星
     if (gameState === 'playing' || gameState === 'calculating') {
-        // 点線ガイド
         ctx.beginPath();
         ctx.ellipse(centerX, centerY, rx, ry, 0, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
-        // 恒星（モードに応じた発光色に変更）
         ctx.beginPath();
         ctx.arc(centerX, centerY, 16, 0, Math.PI * 2);
         ctx.fillStyle = modeConfig.starColor;
